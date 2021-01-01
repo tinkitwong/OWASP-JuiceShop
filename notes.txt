@@ -1,0 +1,115 @@
+Author : Tin Kit
+This is my writeup for OWASP Juice-Shop.
+I did not include the writeups for challenges that were quick and easy to solve. 
+
+
+======= Stars 1 =======
+
+admin@juice-shop
+admin123
+
+# normal account
+abc@hacks.com
+abcde1
+
+
+Challenge: Retrieve the photo of Bjoern's cat in "melee combat mode".
+1. Go to `PhotoWall` and we see an alt. text of failed-to-load img
+2. Inspect element and right click on the img link
+	a. Link:http://localhost:3000/assets/public/images/uploads/%F0%9F%98%BC-#zatschi-#whoneedsfourlegs-1572600969477.jpg
+3. # is not properly url-encoded, and this causes the img. to fail to load
+4. replace # with %23 to properly load the img.
+
+
+
+Challenge: Meta Geo Stalking
+1. Download John's Image to retrieve the meta data
+2. Coordinates are 36.958717N 84.348217W
+3. Google search results gives Daniel Boone National Forest
+
+new creds
+john@juice-sh.op
+123123123
+
+
+======== Stars 2 ========
+
+Challenge: Visual Geo Stalking
+1. In Photo Wall Section, download Emma's Image
+2. Zoom in to the left, we see ITsec.
+3. Go to Forget Password, we guess emma's email as emma@juice-sh.op
+4. Guess password as ITsec
+
+new creds
+emma@juice-sh.op
+123123123
+
+======= Stars 3 =======
+
+Challenge: API-only XSS
+1. Using Burp Suite, look at HTTP History after visting web pages.
+2. Looking at js files with Debugger, we know there are /api/Products endpoints.
+3. In Burp Suite, send one /api/quantity to repeater and change dest. to /api/Products/6 where 6 is the Pdt. ID 
+4. Change the method to PUT to update the resource. 
+5. Attempt to change the description value, but we need admin Authorisation Token. We can steal that after logging in as admin. (Done in previous challenges)
+6. We then change the description to the following:
+	{"description": "<iframe src=\"javascript:alert(`xss`)\">" }
+7. Take note that we need to escape the quotations. 
+8. Finish. 
+
+
+Challenge: Admin Registration
+1. OWASP API 
+2. With Burp Suite running in the background, we register a user with normal priveledges.
+3. Since we know there are more fields returned in the response than in the request, we can try to assign the fields that we want to change.
+4. role:admin
+5. Done
+
+
+Challenge:  Bjoern's Favorite Pet
+1. OSINT. https://www.youtube.com/watch?v=Lu0-kDdtVf4
+2. bjoern@owasp.org
+3. Security Question: Zaya
+
+New Creds
+bjoern@owasp.org
+password
+
+
+Challenge: CAPTCHA Bypass
+1. Use Burpsuite to check out the pages loaded when loading the Feedback page and when submitting a Feedback. We get pages of the following paths:
+	a. /rest/captcha
+	b. /rest/use/whoami
+	c. /api/Feedbacks
+2. The response to /rest/captcha leaks the answer in JSON and notice that captchaId increments with step size of 1 each time a request is sent. So we can craft a bash script that curls this path to get the ID and answer.
+3. We craft a POST request and embed the ID and answer fields, also take include a header for Content-Type to be applcation/json4. Iterate this 2 cmds 10 times in a for loop and we solve this Challenge.
+
+Script used: captcha-bypass.sh
+
+Challenge: Database Schema
+1. Use Burpsuite to capture the pages when searching for a product at homepage
+2. There is an endpoint that potentially interacts with the database
+	a. /rest/products/search?q=
+3. We can tinker with this:
+	a. GET /rest/products/search?q=applke'))UNION%20SELECT%201,2,3,4,5,6,7,8,9%20FROM%20sqlite_master-- HTTP/1.1
+	b. %20 is required for url to decode as space at server side.
+	c. We are using UNION to query both applke and the sqlite_master schema
+4. We get back a successful resposne from the database. We now know the TABLE column names.
+
+{"status":"success","data":[{"id":1,"name":2,"description":3,"price":4,"deluxePrice":5,"image":6,"createdAt":7,"updatedAt":8,"deletedAt":9}]}
+
+5. GET /rest/products/search?q=applke'))UNION%20SELECT%20sql,2,3,4,5,6,7,8,9%20FROM%20sqlite_master-- HTTP/1.1
+	a. This allows us to get the schema.
+
+
+
+Challenge: Deluxe Fraud
+1. Navigate to Deluxe Membership as a regular-permissioned user.
+2. Inspect Element on Payment Button "Pay 49.00" and remove "disabled=true" together with the portion of the classname with disabled in it. Proberly has some js script that applies logic to disable the button.
+3. Click the button with burpsuite running.
+	a. POST Request is made. 
+	b. {"paymentMode":"wallet"}
+4. We can remove the value "wallet" and replace it with an empty string.
+	a. And we get a success message back. 
+	b. Apparently the server-side logic failed to check for empty payment modes. 
+
