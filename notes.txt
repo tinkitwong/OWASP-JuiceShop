@@ -267,4 +267,55 @@ file:///etc/passwd&quot;&gt;]&gt;&lt;root&gt;root:x:0:0:root:/root:/usr/bin/zshd
 ----
 
 
-					 
+====== Stars 4 =====
+
+Challenge: Access Log
+0. We can use fuff or any website fuzzer to find the /ftp directory.
+	a. We already know /ftp exists because of a previous challenge.
+1. Searching around, I found incident-support.kdbx in /ftp --> it's a KeePass database file. Let's try to crack it; This may or may not be relevant for this challenge. 
+	a. Run it through keepass2john incident-support.kdbx > KeePass.hash
+	b. incident-support:$keepass$*2*1*0*49dc48964f1b17385923c8421b4c5f07e159657a9af8814e05e135c34d2ea7e9*3602c14dffbd103014d7f56dd6c6641cb00a43f7346e8119fef5e4b15e1f6fa8*1cc4846f661c02ecc025bd917d9c34f8*b5b2a2ebcc864d164086407c8e67ca91fd03d21c1c26178b1da0cc2ff49f8534*5e830b9b4ff18ed529be50b548bc746be048399e1a4d778dfad3c4c4623bc507
+	c. Delete the pre-pended db name in the hash
+	d. $keepass$*2*1*0*49dc48964f1b17385923c8421b4c5f07e159657a9af8814e05e135c34d2ea7e9*3602c14dffbd103014d7f56dd6c6641cb00a43f7346e8119fef5e4b15e1f6fa8*1cc4846f661c02ecc025bd917d9c34f8*b5b2a2ebcc864d164086407c8e67ca91fd03d21c1c26178b1da0cc2ff49f8534*5e830b9b4ff18ed529be50b548bc746be048399e1a4d778dfad3c4c4623bc507
+	e. Hashcat couldn't crack it. Tested wordlists
+		i. rockyou.txt
+		ii. seclists/Passwords/Common-Credentials/10-million-password-list-top-10000.txt
+2. I couldn't figure this out and went to https://www.youtube.com/watch?v=RBTfGk-ZwnY to get an answer.
+	a. Apparently, the access logs are hidden behind /support directory.
+	b. with ffuf, it didn't identity the directory.
+3. Assuming that we know there is /support directory, we can conduct fuzzing once more
+	a. ./ffuf -w /usr/share/wordlists/dirb/common.txt -u http://localhost:3000/support/FUZZ -fs 1925 | tee ffuf.txt
+	b. Results are: Logs, logs. Navigating to /support/Logs and /support/logs shows us the pages where access logs are kept.
+4. Challenge Completed. 
+
+Challenge: Allow Bypass
+1. We can find a number of redirect endpoints in debugger --> main-es2018.js
+	a. https://blockchain.info/address/1AbKfgvw9psQ41NbLi8kufDQTezwG8DRZm
+	b. https://explorer.dash.org/address/Xr556RzuwX6hg5EGpkybbv5RanJoZN17kW
+	c. https://etherscan.io/address/0x0f933ab9fcaaa782d0279c300d73750e1311eae6
+	d. /redirect?to=http://shop.spreadshirt.com/juiceshop
+	e. /redirect?to=http://shop.spreadshirt.de/juiceshop
+	f. /redirect?to=https://www.stickeryou.com/products/owasp-juice-shop/794
+	e. /redirect?to=http://leanpub.com/juice-shop
+	g. /redirect?to=https://github.com/bkimminich/juice-shop
+2. When trying to redirect to another page using Repeater in burpsuite, we get and error message: Error: Unrecognized target URL for redirect: https://google.com
+	a. GET /redirect?to=https://google.com HTTP/1.1
+	b. Tampering with the redirect link as such; still yields a succesfull redirect
+		i.GET /redirect?to=ahttps://github.com/bkimminich/juice-shop HTTP/1.1
+		ii. GET /redirect?to=https://github.com/bkimminich/juice-shopa HTTP/1.1
+	c. This might mean that the server side logic did not handle validation properly.
+	d. Playing around with the redirect link, we get a succesful redirect to google.com using 
+		i. localhost:3000/redirect?to=https://google.com/https://github.com/bkimminich/juice-shop/../../../../../
+		ii. The ../ is to cdout of the legitimate link and for the redirect to effectively be localhost:3000/redirect?to=https://google.com
+3. Challenge Completed.
+
+Challenge: CSP Bypass
+1. For webpages to be enabled with CSP, the server is required to return the Content-Security-Policy HTTP header (sometimes referred to as X-Content-Security-Policy Header). Alternatively, <meta> element can be used to configure a policy.
+	a. <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src https://*; child-src 'none';">
+2. The page identified is localhost:3000/profile with CSP: img-src 'self' assets/public/images/uploads/default.svg; script-src 'self' 'unsafe-eval' https://code.getmdl.io http://ajax.googleapis.com
+3. Failed to write "Set Username" field value of <script>alert(`xss`)</script>. The input was santised to lert(`xss`)</script>
+4. <<a|ascript>alert(`xss`)</script> returns <script>alert(`xss`)</script> but Username is now \
+	a. Console raises Error: Content Security Policy: The page’s settings blocked the loading of a resource at inline (“script-src”).
+5. Resources that may be useful:
+	a. https://lab.wallarm.com/how-to-trick-csp-in-letting-you-run-whatever-you-want-73cb5ff428aa/
+	b. https://www.youtube.com/watch?v=J90t0h0AP1U 
